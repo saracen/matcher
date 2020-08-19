@@ -29,7 +29,10 @@ type Matcher interface {
 	Match(pathname string) (Result, error)
 }
 
-type matcher []string
+type matcher struct {
+	pattern []string
+	options matchOptions
+}
 
 // NewMatcher returns a new Matcher.
 //
@@ -39,8 +42,17 @@ type matcher []string
 // Follow hints to the caller that whilst the pattern wasn't matched, path
 // traversal might yield matches. This allows for more efficient globbing,
 // preventing path traversal where a match is impossible.
-func NewMatcher(pattern string) Matcher {
-	return matcher(strings.Split(pattern, separator))
+func NewMatcher(pattern string, opts ...MatchOption) Matcher {
+	matcher := matcher{pattern: strings.Split(pattern, separator)}
+	for _, o := range opts {
+		o(&matcher.options)
+	}
+
+	if matcher.options.MatchFn == nil {
+		matcher.options.MatchFn = path.Match
+	}
+
+	return matcher
 }
 
 // Match has similar behaviour to path.Match, but supports globstar.
@@ -49,17 +61,17 @@ func NewMatcher(pattern string) Matcher {
 //
 // The only possible returned error is ErrBadPattern, when the pattern
 // is malformed.
-func Match(pattern, pathname string) (bool, error) {
-	result, err := NewMatcher(pattern).Match(pathname)
+func Match(pattern, pathname string, opts ...MatchOption) (bool, error) {
+	result, err := NewMatcher(pattern, opts...).Match(pathname)
 
 	return result == Matched, err
 }
 
 func (p matcher) Match(pathname string) (Result, error) {
-	return match(p, strings.Split(pathname, separator))
+	return match(p.pattern, strings.Split(pathname, separator), p.options.MatchFn)
 }
 
-func match(pattern, parts []string) (Result, error) {
+func match(pattern, parts []string, matchFn func(pattern, name string) (matched bool, err error)) (Result, error) {
 	for {
 		switch {
 		case len(pattern) == 0 && len(parts) == 0:
@@ -76,7 +88,7 @@ func match(pattern, parts []string) (Result, error) {
 
 		case pattern[0] == globstar:
 			for i := range parts {
-				result, err := match(pattern[1:], parts[i:])
+				result, err := match(pattern[1:], parts[i:], matchFn)
 				if result == Matched || err != nil {
 					return result, err
 				}
@@ -84,7 +96,7 @@ func match(pattern, parts []string) (Result, error) {
 			return Follow, nil
 		}
 
-		matched, err := path.Match(pattern[0], parts[0])
+		matched, err := matchFn(pattern[0], parts[0])
 		switch {
 		case err != nil:
 			return NotMatched, err
