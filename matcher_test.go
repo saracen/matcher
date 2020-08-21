@@ -272,6 +272,7 @@ var matchTests = map[string][]MatchTest{
 
 func TestMatch(t *testing.T) {
 	for tn, tests := range matchTests {
+		tests := tests
 		t.Run(tn, func(t *testing.T) {
 			for _, tt := range tests {
 				matched, err := Match(tt.pattern, tt.s)
@@ -287,6 +288,7 @@ func TestMatch(t *testing.T) {
 
 func TestNewMatcher(t *testing.T) {
 	for tn, tests := range matchTests {
+		tests := tests
 		t.Run(tn, func(t *testing.T) {
 			for _, tt := range tests {
 				result, err := NewMatcher(tt.pattern).Match(tt.s)
@@ -348,6 +350,36 @@ func TestMultiMatcher(t *testing.T) {
 	}
 }
 
+func TestMatchFunc(t *testing.T) {
+	tests := map[string]Result{
+		"aaa/bbb":              Follow,
+		"aaa/bbb/ccc/ddd/eee":  Matched,
+		"aaaa/zzz/ccc/zzz/eee": Matched,
+		"aa/zzz/ccc/zzz/eee":   NotMatched,
+	}
+
+	// a custom matcher that uses path.Match, but only succeeds if the path
+	// segment is more than 2 characters.
+	match := func(pattern, name string) (matched bool, err error) {
+		matched, err = path.Match(pattern, name)
+		if matched && len(name) > 2 {
+			return true, err
+		}
+		return false, err
+	}
+
+	for path, tt := range tests {
+		result, err := NewMatcher("a*/**/ccc/**/eee", WithMatchFunc(match)).Match(path)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if result != tt {
+			t.Errorf("path %q result was %v expected %v", path, result, tt)
+		}
+	}
+}
+
 func TestMultiMatcherInvalid(t *testing.T) {
 	_, err := NewMultiMatcher(
 		NewMatcher("abc"),
@@ -367,16 +399,16 @@ func TestGlob(t *testing.T) {
 
 	defer os.RemoveAll(dir)
 
-	os.MkdirAll(filepath.Join(dir, "files/dir1"), 0777)
-	os.MkdirAll(filepath.Join(dir, "files/dir2"), 0777)
-	os.MkdirAll(filepath.Join(dir, "files/dir3"), 0111)
-	os.MkdirAll(filepath.Join(dir, "ignore/dir4"), 0777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir1"), 0777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir2"), 0777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir3"), 0111)
+	os.MkdirAll(filepath.Join(dir, "ignore", "dir4"), 0777)
 
-	ioutil.WriteFile(filepath.Join(dir, "files/dir1/file1.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files/dir1/file2.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files/dir2/file3.ignore"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files/dir3/file4.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "ignore/dir4/file5.txt"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "file1.txt"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "file2.txt"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "files", "dir2", "file3.ignore"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "files", "dir3", "file4.txt"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "ignore", "dir4", "file5.txt"), []byte{}, 0600)
 
 	matches, err := Glob(context.Background(), dir, NewMatcher("files/**/*.txt"))
 	if err != nil {
@@ -396,12 +428,12 @@ func TestGlobMultiMatcher(t *testing.T) {
 
 	defer os.RemoveAll(dir)
 
-	os.MkdirAll(filepath.Join(dir, "files/dir1"), 0777)
-	os.MkdirAll(filepath.Join(dir, "files/dir2"), 0777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir1"), 0777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir2"), 0777)
 
-	ioutil.WriteFile(filepath.Join(dir, "files/dir1/File1.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files/dir1/File2.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files/dir2/File3.txt"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "File1.txt"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "File2.txt"), []byte{}, 0600)
+	ioutil.WriteFile(filepath.Join(dir, "files", "dir2", "File3.txt"), []byte{}, 0600)
 
 	matches, err := Glob(context.Background(), dir, NewMultiMatcher(
 		NewMatcher(strings.ToLower("files/DIR1/file1.txt")),
@@ -432,6 +464,18 @@ func BenchmarkGlob(b *testing.B) {
 }
 
 /*
+func BenchmarkGlobWithDoublestarMatch(b *testing.B) {
+	b.ReportAllocs()
+
+	m := NewMatcher(*globPattern, WithMatchFunc(doublestar.Match))
+	for n := 0; n < b.N; n++ {
+		_, err := Glob(context.Background(), *globDir, m)
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
 func BenchmarkDoublestarGlob(b *testing.B) {
 	b.ReportAllocs()
 
