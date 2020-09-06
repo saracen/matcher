@@ -291,9 +291,9 @@ func TestNewMatcher(t *testing.T) {
 		tests := tests
 		t.Run(tn, func(t *testing.T) {
 			for _, tt := range tests {
-				result, err := NewMatcher(tt.pattern).Match(tt.s)
+				result, err := New(tt.pattern).Match(tt.s)
 				if result != tt.result || err != tt.err {
-					t.Errorf("NewMatcher(%#q).Match(%#q) = (%v, %v) want (%v, %v)", tt.pattern, tt.s, result, err, tt.result, tt.err)
+					t.Errorf("New(%#q).Match(%#q) = (%v, %v) want (%v, %v)", tt.pattern, tt.s, result, err, tt.result, tt.err)
 					return
 				}
 			}
@@ -319,13 +319,13 @@ func TestMultiMatcher(t *testing.T) {
 		"yyy/aaa/yyy":                         NotMatched,
 	}
 
-	includes := NewMultiMatcher(
-		NewMatcher("aaa/**/ccc/**/eee"),
-		NewMatcher("zzz/**"),
+	includes := Multi(
+		New("aaa/**/ccc/**/eee"),
+		New("zzz/**"),
 	)
-	excludes := NewMultiMatcher(
-		NewMatcher("aaa/bbb/ccc/ddd/eee"),
-		NewMatcher("zzz/**"),
+	excludes := Multi(
+		New("aaa/bbb/ccc/ddd/eee"),
+		New("zzz/**"),
 	)
 
 	for path, tt := range tests {
@@ -369,7 +369,7 @@ func TestMatchFunc(t *testing.T) {
 	}
 
 	for path, tt := range tests {
-		result, err := NewMatcher("a*/**/ccc/**/eee", WithMatchFunc(match)).Match(path)
+		result, err := New("a*/**/ccc/**/eee", WithMatchFunc(match)).Match(path)
 		if err != nil {
 			t.Error(err)
 		}
@@ -381,9 +381,9 @@ func TestMatchFunc(t *testing.T) {
 }
 
 func TestMultiMatcherInvalid(t *testing.T) {
-	_, err := NewMultiMatcher(
-		NewMatcher("abc"),
-		NewMatcher("[]a]"),
+	_, err := Multi(
+		New("abc"),
+		New("[]a]"),
 	).Match("abcdef")
 
 	if err == nil {
@@ -410,7 +410,7 @@ func TestGlob(t *testing.T) {
 	ioutil.WriteFile(filepath.Join(dir, "files", "dir3", "file4.txt"), []byte{}, 0600)
 	ioutil.WriteFile(filepath.Join(dir, "ignore", "dir4", "file5.txt"), []byte{}, 0600)
 
-	matches, err := Glob(context.Background(), dir, NewMatcher("files/**/*.txt"))
+	matches, err := Glob(context.Background(), dir, New("files/**/*.txt"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -435,9 +435,9 @@ func TestGlobMultiMatcher(t *testing.T) {
 	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "File2.txt"), []byte{}, 0600)
 	ioutil.WriteFile(filepath.Join(dir, "files", "dir2", "File3.txt"), []byte{}, 0600)
 
-	matches, err := Glob(context.Background(), dir, NewMultiMatcher(
-		NewMatcher(strings.ToLower("files/DIR1/file1.txt")),
-		NewMatcher(strings.ToLower("files/DIR1/file2.txt")),
+	matches, err := Glob(context.Background(), dir, Multi(
+		New(strings.ToLower("files/DIR1/file1.txt")),
+		New(strings.ToLower("files/DIR1/file2.txt")),
 	), WithPathTransformer(strings.ToLower))
 	if err != nil {
 		t.Error(err)
@@ -454,7 +454,7 @@ var globPattern = flag.String("globpattern", "pkg/**/*.go", "The pattern to use 
 func BenchmarkGlob(b *testing.B) {
 	b.ReportAllocs()
 
-	m := NewMatcher(*globPattern)
+	m := New(*globPattern)
 	for n := 0; n < b.N; n++ {
 		_, err := Glob(context.Background(), *globDir, m)
 		if err != nil {
@@ -467,7 +467,7 @@ func BenchmarkGlob(b *testing.B) {
 func BenchmarkGlobWithDoublestarMatch(b *testing.B) {
 	b.ReportAllocs()
 
-	m := NewMatcher(*globPattern, WithMatchFunc(doublestar.Match))
+	m := New(*globPattern, WithMatchFunc(doublestar.Match))
 	for n := 0; n < b.N; n++ {
 		_, err := Glob(context.Background(), *globDir, m)
 		if err != nil {

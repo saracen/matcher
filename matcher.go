@@ -34,7 +34,7 @@ type matcher struct {
 	options matchOptions
 }
 
-// NewMatcher returns a new Matcher.
+// New returns a new Matcher.
 //
 // The Matcher returned uses the same rules as Match, but returns a result of
 // either NotMatched, Matched or Follow.
@@ -42,7 +42,7 @@ type matcher struct {
 // Follow hints to the caller that whilst the pattern wasn't matched, path
 // traversal might yield matches. This allows for more efficient globbing,
 // preventing path traversal where a match is impossible.
-func NewMatcher(pattern string, opts ...MatchOption) Matcher {
+func New(pattern string, opts ...MatchOption) Matcher {
 	matcher := matcher{pattern: strings.Split(pattern, separator)}
 	for _, o := range opts {
 		o(&matcher.options)
@@ -62,7 +62,7 @@ func NewMatcher(pattern string, opts ...MatchOption) Matcher {
 // The only possible returned error is ErrBadPattern, when the pattern
 // is malformed.
 func Match(pattern, pathname string, opts ...MatchOption) (bool, error) {
-	result, err := NewMatcher(pattern, opts...).Match(pathname)
+	result, err := New(pattern, opts...).Match(pathname)
 
 	return result == Matched, err
 }

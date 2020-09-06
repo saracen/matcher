@@ -4,7 +4,7 @@
 
 - Supports globstar/doublestar (`**`).
 - Provides a fast `Glob` function.
-- Provides a `NewMultiMatcher` for combining multiple patterns to be matched.
+- Supports combining matchers.
 
 ## Examples
 
@@ -35,7 +35,7 @@ package main
 import "github.com/saracen/matcher"
 
 func main() {
-    matches, err := matcher.Glob(context.Background(), ".", matcher.NewMatcher("**/*.go"))
+    matches, err := matcher.Glob(context.Background(), ".", matcher.New("**/*.go"))
     if err != nil {
         panic(err)
     }
@@ -53,9 +53,9 @@ package main
 import "github.com/saracen/matcher"
 
 func main() {
-    matcher := matcher.NewMultiMatcher(
-        matcher.NewMatcher("**/*.go"),
-        matcher.NewMatcher("**/*.txt"))
+    matcher := matcher.Multi(
+        matcher.New("**/*.go"),
+        matcher.New("**/*.txt"))
 
     matches, err := matcher.Glob(context.Background(), ".", matcher)
     if err != nil {
