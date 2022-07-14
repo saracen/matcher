@@ -76,7 +76,7 @@ var matchTests = map[string][]MatchTest{
 		{"[", "a", NotMatched, ErrBadPattern},
 		{"[^", "a", NotMatched, ErrBadPattern},
 		{"[^bc", "a", NotMatched, ErrBadPattern},
-		{"a[", "a", NotMatched, nil},
+		{"a[", "a", NotMatched, ErrBadPattern},
 		{"a[", "ab", NotMatched, ErrBadPattern},
 		{"*x", "xxx", Matched, nil},
 	},
@@ -120,7 +120,7 @@ var matchTests = map[string][]MatchTest{
 		{"foo/**/bar", "foo/bar", Matched, nil},
 		{"foo/**/**/bar", "foo/bar", Matched, nil},
 		{"foo?bar", "foo/bar", NotMatched, nil},
-		{"foo[/]bar", "foo/bar", NotMatched, nil},
+		{"foo[/]bar", "foo/bar", NotMatched, ErrBadPattern},
 		{"foo[^a-z]bar", "foo/bar", NotMatched, nil},
 		{"f[^eiu][^eiu][^eiu][^eiu][^eiu]r", "foo/bar", NotMatched, nil},
 		{"f[^eiu][^eiu][^eiu][^eiu][^eiu]r", "foo-bar", Matched, nil},
@@ -144,7 +144,7 @@ var matchTests = map[string][]MatchTest{
 		{"a[c-c]rt", "acrt", Matched, nil},
 		{"[!]-]", "]", NotMatched, nil},
 		{"[!]-]", "a", NotMatched, nil},
-		{`\`, "", Follow, nil},
+		{`\`, "", NotMatched, ErrBadPattern},
 		{`\`, `\`, NotMatched, ErrBadPattern},
 		{`*/\`, `XXX/\`, NotMatched, ErrBadPattern},
 		{`*/\\`, `XXX/\`, Matched, nil},
@@ -399,16 +399,16 @@ func TestGlob(t *testing.T) {
 
 	defer os.RemoveAll(dir)
 
-	os.MkdirAll(filepath.Join(dir, "files", "dir1"), 0777)
-	os.MkdirAll(filepath.Join(dir, "files", "dir2"), 0777)
-	os.MkdirAll(filepath.Join(dir, "files", "dir3"), 0111)
-	os.MkdirAll(filepath.Join(dir, "ignore", "dir4"), 0777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir1"), 0o777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir2"), 0o777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir3"), 0o111)
+	os.MkdirAll(filepath.Join(dir, "ignore", "dir4"), 0o777)
 
-	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "file1.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "file2.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files", "dir2", "file3.ignore"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files", "dir3", "file4.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "ignore", "dir4", "file5.txt"), []byte{}, 0600)
+	os.WriteFile(filepath.Join(dir, "files", "dir1", "file1.txt"), []byte{}, 0o600)
+	os.WriteFile(filepath.Join(dir, "files", "dir1", "file2.txt"), []byte{}, 0o600)
+	os.WriteFile(filepath.Join(dir, "files", "dir2", "file3.ignore"), []byte{}, 0o600)
+	os.WriteFile(filepath.Join(dir, "files", "dir3", "file4.txt"), []byte{}, 0o600)
+	os.WriteFile(filepath.Join(dir, "ignore", "dir4", "file5.txt"), []byte{}, 0o600)
 
 	matches, err := Glob(context.Background(), dir, New("files/**/*.txt"))
 	if err != nil {
@@ -428,12 +428,12 @@ func TestGlobMultiMatcher(t *testing.T) {
 
 	defer os.RemoveAll(dir)
 
-	os.MkdirAll(filepath.Join(dir, "files", "dir1"), 0777)
-	os.MkdirAll(filepath.Join(dir, "files", "dir2"), 0777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir1"), 0o777)
+	os.MkdirAll(filepath.Join(dir, "files", "dir2"), 0o777)
 
-	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "File1.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files", "dir1", "File2.txt"), []byte{}, 0600)
-	ioutil.WriteFile(filepath.Join(dir, "files", "dir2", "File3.txt"), []byte{}, 0600)
+	os.WriteFile(filepath.Join(dir, "files", "dir1", "File1.txt"), []byte{}, 0o600)
+	os.WriteFile(filepath.Join(dir, "files", "dir1", "File2.txt"), []byte{}, 0o600)
+	os.WriteFile(filepath.Join(dir, "files", "dir2", "File3.txt"), []byte{}, 0o600)
 
 	matches, err := Glob(context.Background(), dir, Multi(
 		New(strings.ToLower("files/DIR1/file1.txt")),
